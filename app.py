@@ -117,11 +117,29 @@ async def analyze_document(req: AnalyzeRequest):
         "ai": ai_result
     })
 
+@app.post("/api/upload-and-extract")
+async def upload_and_extract(file: UploadFile = File(...)):
+    try:
+        file_bytes = await file.read()
+        extracted_text, file_meta = parse_uploaded_file(file.filename or "document.txt", file_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract document text: {str(e)}")
+        
+    text = extracted_text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Document contains no readable text")
+
+    return JSONResponse(content={
+        "filename": file.filename,
+        "file_meta": file_meta,
+        "extracted_text": text
+    })
+
 @app.post("/api/upload-and-analyze")
 async def upload_and_analyze(file: UploadFile = File(...)):
     try:
         file_bytes = await file.read()
-        extracted_text, file_meta = parse_uploaded_file(file.filename, file_bytes)
+        extracted_text, file_meta = parse_uploaded_file(file.filename or "document.txt", file_bytes)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to extract document text: {str(e)}")
         

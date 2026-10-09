@@ -453,45 +453,61 @@
             formData.append('file', file);
 
             try {
-                const [res] = await Promise.all([
-                    fetch('/api/upload-and-analyze', {
-                        method: 'POST',
-                        body: formData
-                    }),
-                    animateDeepScanProgress()
-                ]);
+                // Call extraction endpoint to get package files inventory first
+                const res = await fetch('/api/upload-and-extract', {
+                    method: 'POST',
+                    body: formData
+                });
 
                 if (!res.ok) {
                     const errData = await res.json();
                     throw new Error(errData.detail || 'Upload failed');
                 }
 
-                currentAnalysisResult = await res.json();
+                const data = await res.json();
                 
                 // Handle ZIP / Multi-document package inventory
-                if (currentAnalysisResult.file_meta && currentAnalysisResult.file_meta.format === 'zip' && currentAnalysisResult.file_meta.processed_files) {
-                    uploadedZipFiles = currentAnalysisResult.file_meta.processed_files;
+                if (data.file_meta && data.file_meta.format === 'zip' && data.file_meta.processed_files) {
+                    uploadedZipFiles = data.file_meta.processed_files;
                     renderZipFileSelectionList(uploadedZipFiles);
+                    
+                    document.getElementById('inputText').value = data.extracted_text;
+                    document.getElementById('inputText').dispatchEvent(new Event('input'));
+
+                    const badge = document.getElementById('docStatusBadge');
+                    badge.innerText = `Package Uploaded: ${file.name} (${uploadedZipFiles.length} files extracted - Select & Preview below)`;
+                    badge.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-700/60';
+
+                    // Smooth scroll to the selection panel so user can inspect and pick files
+                    document.getElementById('zipSelectionContainer').scrollIntoView({ behavior: 'smooth' });
                 } else {
                     document.getElementById('zipSelectionContainer').classList.add('hidden');
+                    document.getElementById('inputText').value = data.extracted_text;
+                    document.getElementById('inputText').dispatchEvent(new Event('input'));
+
+                    let metaInfo = '';
+                    if (data.file_meta) {
+                        const m = data.file_meta;
+                        if (m.page_count) metaInfo = ` (${m.page_count} Pages)`;
+                        else if (m.slide_count) metaInfo = ` (${m.slide_count} Slides)`;
+                        else if (m.paragraph_count) metaInfo = ` (${m.paragraph_count} Paragraphs)`;
+                    }
+                    
+                    const badge = document.getElementById('docStatusBadge');
+                    badge.innerText = `Uploaded: ${file.name}${metaInfo}`;
+                    badge.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-700/60';
+
+                    // Run automatic analysis for single files
+                    await animateDeepScanProgress();
+                    const analyzeRes = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: data.extracted_text })
+                    });
+                    const analyzeData = await analyzeRes.json();
+                    currentAnalysisResult = analyzeData;
+                    renderResults(analyzeData);
                 }
-
-                document.getElementById('inputText').value = currentAnalysisResult.extracted_text;
-                document.getElementById('inputText').dispatchEvent(new Event('input'));
-
-                let metaInfo = '';
-                if (currentAnalysisResult.file_meta) {
-                    const m = currentAnalysisResult.file_meta;
-                    if (m.page_count) metaInfo = ` (${m.page_count} Pages)`;
-                    else if (m.slide_count) metaInfo = ` (${m.slide_count} Slides)`;
-                    else if (m.paragraph_count) metaInfo = ` (${m.paragraph_count} Paragraphs)`;
-                }
-                
-                const badge = document.getElementById('docStatusBadge');
-                badge.innerText = `Uploaded: ${file.name}${metaInfo}`;
-                badge.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-700/60';
-
-                renderResults(currentAnalysisResult);
 
             } catch (err) {
                 alert('Error processing file: ' + err.message);
@@ -582,12 +598,21 @@
             }
 
             const selectedIds = Array.from(selectedBoxes).map(b => b.id.replace('zip_chk_', ''));
-            const selectedFiles = uploadedZipFiles.filter(f => selectedIds.includes(f.id));
+            const selectedFiles = uploadedZipFiles.filter((f, idx) => {
+                const fileId = f.id || `file_${idx + 1}`;
+                return selectedIds.includes(fileId);
+            });
+
+            if (selectedFiles.length === 0) {
+                alert('No valid files matched the selection.');
+                return;
+            }
 
             const combinedText = selectedFiles.map(f => `=== Document: ${f.filename} ===\n` + f.text).join('\n\n');
             document.getElementById('inputText').value = combinedText;
             document.getElementById('inputText').dispatchEvent(new Event('input'));
 
+            if (!isEditMode) toggleViewMode();
             runAnalysis();
         }
 
