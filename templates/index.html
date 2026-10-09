@@ -178,6 +178,35 @@
             </div>
         </div>
 
+        <!-- ZIP / Multi-File Selective Selection & Preview Bar (Hidden initially) -->
+        <div id="zipSelectionContainer" class="hidden glass-card rounded-2xl p-4 border border-indigo-500/30 bg-indigo-950/20 animate-fade-in space-y-3">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-indigo-500/20 pb-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-bold text-sm">
+                        <i class="fa-solid fa-folder-tree"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-sm font-bold text-white tracking-wide">Multi-Document Archive Package</h3>
+                        <p class="text-xs text-indigo-300/80" id="zipPackageSubtitle">Select specific documents to preview or include in targeted scan</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleSelectAllZipFiles(true)" class="text-xs bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 font-medium px-2.5 py-1 rounded-lg border border-indigo-700/50 transition">
+                        <i class="fa-solid fa-check-double mr-1"></i> Select All
+                    </button>
+                    <button onclick="toggleSelectAllZipFiles(false)" class="text-xs bg-slate-800/60 hover:bg-slate-700/60 text-slate-300 font-medium px-2.5 py-1 rounded-lg border border-slate-700/50 transition">
+                        <i class="fa-solid fa-xmark mr-1"></i> Deselect All
+                    </button>
+                    <button onclick="scanSelectedZipDocuments()" class="text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold px-3.5 py-1.5 rounded-lg shadow-md transition">
+                        <i class="fa-solid fa-magnifying-glass mr-1"></i> Scan Selected (<span id="selectedZipCount">0</span>)
+                    </button>
+                </div>
+            </div>
+
+            <!-- List of extracted zip files -->
+            <div id="zipFileListGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+
         <!-- Main Grid Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
 
@@ -335,30 +364,53 @@
 
     </main>
 
+    <!-- Modal: Individual File Preview -->
+    <div id="filePreviewModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl max-w-2xl w-full p-6 space-y-4 border border-slate-800 animate-fade-in shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span id="previewFileBadge" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30">PDF</span>
+                    <div>
+                        <h3 id="previewFileTitle" class="font-bold text-white text-sm">document_title.pdf</h3>
+                        <p id="previewFileMeta" class="text-xs text-slate-400 font-mono">1,200 Words • 4 Pages</p>
+                    </div>
+                </div>
+                <button onclick="closeFilePreviewModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div id="previewFileContent" class="w-full h-80 p-4 glass-input rounded-xl text-slate-200 text-sm leading-relaxed overflow-y-auto font-paper border border-slate-800"></div>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
+                <span class="text-slate-400 font-mono">Isolated File Preview Mode</span>
+                <button onclick="closeFilePreviewModal()" class="px-5 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition">Close Preview</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Add Custom Corpus Document -->
-    <div id="addSourceModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h3 class="font-bold text-slate-800">Add Reference Document to Corpus</h3>
-                <button onclick="closeAddSourceModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+    <div id="addSourceModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl max-w-lg w-full p-6 space-y-4 border border-slate-800 animate-fade-in shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-white text-base">Add Reference Document to Corpus</h3>
+                <button onclick="closeAddSourceModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3 text-xs">
                 <div>
-                    <label class="block font-medium text-slate-700 mb-1">Document Title</label>
-                    <input type="text" id="newDocTitle" class="w-full p-2 border border-slate-300 rounded outline-none focus:border-blue-500" placeholder="e.g. Modern Physics Review">
+                    <label class="block font-medium text-slate-300 mb-1">Document Title</label>
+                    <input type="text" id="newDocTitle" class="w-full p-2.5 glass-input rounded-xl text-white outline-none focus:border-blue-500 transition" placeholder="e.g. Neural Networks & Greek Literature">
                 </div>
                 <div>
-                    <label class="block font-medium text-slate-700 mb-1">Author / Source</label>
-                    <input type="text" id="newDocAuthor" class="w-full p-2 border border-slate-300 rounded outline-none focus:border-blue-500" placeholder="e.g. Academic Press 2024">
+                    <label class="block font-medium text-slate-300 mb-1">Author / Source Citation</label>
+                    <input type="text" id="newDocAuthor" class="w-full p-2.5 glass-input rounded-xl text-white outline-none focus:border-blue-500 transition" placeholder="e.g. Academic Press 2024">
                 </div>
                 <div>
-                    <label class="block font-medium text-slate-700 mb-1">Document Text (EN / EL)</label>
-                    <textarea id="newDocText" class="w-full h-32 p-2 border border-slate-300 rounded outline-none focus:border-blue-500" placeholder="Paste reference text here..."></textarea>
+                    <label class="block font-medium text-slate-300 mb-1">Document Text Body (EN / EL)</label>
+                    <textarea id="newDocText" class="w-full h-36 p-2.5 glass-input rounded-xl text-white outline-none focus:border-blue-500 transition font-paper" placeholder="Paste reference paper text..."></textarea>
                 </div>
             </div>
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                <button onclick="closeAddSourceModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="submitNewSource()" class="px-4 py-2 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700">Save Reference</button>
+            <div class="flex justify-end gap-3 pt-2 border-t border-slate-800">
+                <button onclick="closeAddSourceModal()" class="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white rounded-xl transition">Cancel</button>
+                <button onclick="submitNewSource()" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition">Save Reference</button>
             </div>
         </div>
     </div>
@@ -367,6 +419,7 @@
     <script>
         let currentAnalysisResult = null;
         let isEditMode = true;
+        let uploadedZipFiles = [];
 
         // Word count live update
         document.getElementById('inputText').addEventListener('input', function() {
@@ -401,11 +454,17 @@
 
                 currentAnalysisResult = await res.json();
                 
-                // Put extracted text into inputText area
+                // Handle ZIP / Multi-document package inventory
+                if (currentAnalysisResult.file_meta && currentAnalysisResult.file_meta.format === 'zip' && currentAnalysisResult.file_meta.processed_files) {
+                    uploadedZipFiles = currentAnalysisResult.file_meta.processed_files;
+                    renderZipFileSelectionList(uploadedZipFiles);
+                } else {
+                    document.getElementById('zipSelectionContainer').classList.add('hidden');
+                }
+
                 document.getElementById('inputText').value = currentAnalysisResult.extracted_text;
                 document.getElementById('inputText').dispatchEvent(new Event('input'));
 
-                // Set file status badge
                 let metaInfo = '';
                 if (currentAnalysisResult.file_meta) {
                     const m = currentAnalysisResult.file_meta;
@@ -416,7 +475,7 @@
                 
                 const badge = document.getElementById('docStatusBadge');
                 badge.innerText = `Uploaded: ${file.name}${metaInfo}`;
-                badge.className = 'text-xs font-semibold px-2.5 py-1 rounded bg-indigo-100 text-indigo-800 border border-indigo-200';
+                badge.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-700/60';
 
                 renderResults(currentAnalysisResult);
 
@@ -426,6 +485,80 @@
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 event.target.value = '';
             }
+        }
+
+        function renderZipFileSelectionList(files) {
+            const container = document.getElementById('zipSelectionContainer');
+            const grid = document.getElementById('zipFileListGrid');
+            const subtitle = document.getElementById('zipPackageSubtitle');
+
+            container.classList.remove('hidden');
+            subtitle.innerText = `${files.length} extracted files found. Check files to select target scan subset.`;
+
+            grid.innerHTML = files.map((f) => `
+                <div class="p-2.5 glass-input rounded-xl border border-slate-800 flex items-center justify-between gap-2 hover:border-indigo-500/40 transition">
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <input type="checkbox" id="zip_chk_${f.id}" checked onchange="updateSelectedZipCount()" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        <div class="truncate">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">${f.format}</span>
+                                <span class="text-xs font-bold text-slate-200 truncate" title="${f.filename}">${f.filename}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-mono mt-0.5">${f.words.toLocaleString()} Words • ${f.pages} Pages</div>
+                        </div>
+                    </div>
+                    <button onclick="previewIndividualFile('${f.id}')" title="Preview isolated file" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 px-2 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1">
+                        <i class="fa-solid fa-eye text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            updateSelectedZipCount();
+        }
+
+        function updateSelectedZipCount() {
+            const checkboxes = document.querySelectorAll('#zipFileListGrid input[type="checkbox"]:checked');
+            document.getElementById('selectedZipCount').innerText = checkboxes.length;
+        }
+
+        function toggleSelectAllZipFiles(selectAll) {
+            const checkboxes = document.querySelectorAll('#zipFileListGrid input[type="checkbox"]');
+            checkboxes.forEach(chk => chk.checked = selectAll);
+            updateSelectedZipCount();
+        }
+
+        function previewIndividualFile(fileId) {
+            const fileObj = uploadedZipFiles.find(f => f.id === fileId);
+            if (!fileObj) return;
+
+            document.getElementById('previewFileBadge').innerText = fileObj.format.toUpperCase();
+            document.getElementById('previewFileTitle').innerText = fileObj.filename;
+            document.getElementById('previewFileMeta').innerText = `${fileObj.words.toLocaleString()} Words • ${fileObj.pages} Pages`;
+            document.getElementById('previewFileContent').innerText = fileObj.text;
+
+            document.getElementById('filePreviewModal').classList.remove('hidden');
+        }
+
+        function closeFilePreviewModal() {
+            document.getElementById('filePreviewModal').classList.add('hidden');
+        }
+
+        function scanSelectedZipDocuments() {
+            const selectedBoxes = document.querySelectorAll('#zipFileListGrid input[type="checkbox"]:checked');
+            if (selectedBoxes.length === 0) {
+                alert('Please select at least one document to scan.');
+                return;
+            }
+
+            const selectedIds = Array.from(selectedBoxes).map(b => b.id.replace('zip_chk_', ''));
+            const selectedFiles = uploadedZipFiles.filter(f => selectedIds.includes(f.id));
+
+            const combinedText = selectedFiles.map(f => `=== Document: ${f.filename} ===\n` + f.text).join('\n\n');
+            document.getElementById('inputText').value = combinedText;
+            document.getElementById('inputText').dispatchEvent(new Event('input'));
+
+            runAnalysis();
+        }
         }
 
         async function loadSample(sampleKey) {
@@ -736,7 +869,7 @@
     <!-- Version Badge (Bottom Right) -->
     <div class="fixed bottom-3 right-3 z-50 flex items-center gap-2 bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3.5 py-1.5 rounded-full text-[11px] text-slate-300 font-mono shadow-2xl">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="font-bold text-white">v1.3.0</span>
+        <span class="font-bold text-white">v1.4.0</span>
     </div>
 </body>
 </html>

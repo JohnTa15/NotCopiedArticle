@@ -3,7 +3,7 @@ import zipfile
 import urllib.request
 import json
 
-test_dir = "C:/Users/JohnJohn/turnitin_ai_detector/test_files"
+test_dir = "C:/Users/JohnJohn/NotCopiedArticle/test_files"
 zip_path = os.path.join(test_dir, "academic_submission.zip")
 
 # Package sample_paper.docx and sample_presentation.pptx into zip

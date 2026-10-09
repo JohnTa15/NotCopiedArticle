@@ -78,6 +78,7 @@ def extract_text_from_zip(file_bytes: bytes) -> Tuple[str, Dict[str, Any]]:
     total_pages = 0
 
     with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
+        file_idx = 0
         for zip_info in zf.infolist():
             if zip_info.is_dir():
                 continue
@@ -92,13 +93,22 @@ def extract_text_from_zip(file_bytes: bytes) -> Tuple[str, Dict[str, Any]]:
                 try:
                     child_text, child_meta = parse_uploaded_file(fname, child_bytes)
                     if child_text.strip():
+                        file_idx += 1
+                        entry_id = f"file_{file_idx}"
+                        words_cnt = len(child_text.split())
+                        pages_cnt = child_meta.get("page_count", child_meta.get("slide_count", 1))
+                        
                         extracted_sections.append(f"=== Document: {fname} ===\n" + child_text.strip())
                         processed_files.append({
+                            "id": entry_id,
                             "filename": fname,
                             "format": child_meta.get("format", ext.lstrip('.')),
+                            "words": words_cnt,
+                            "pages": pages_cnt,
+                            "text": child_text.strip(),
                             "meta": child_meta
                         })
-                        total_pages += child_meta.get("page_count", child_meta.get("slide_count", 1))
+                        total_pages += pages_cnt
                 except Exception as e:
                     print(f"Skipping corrupt file in zip {fname}: {e}")
 
