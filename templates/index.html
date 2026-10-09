@@ -483,11 +483,18 @@
             formData.append('file', file);
 
             try {
-                // Call extraction endpoint to get package files inventory & per-file report
-                const res = await fetch('/api/upload-and-extract', {
+                // Call extraction endpoint, with automatic fallback to upload-and-analyze if 404
+                let res = await fetch('/api/upload-and-extract', {
                     method: 'POST',
                     body: formData
                 });
+
+                if (res.status === 404) {
+                    res = await fetch('/api/upload-and-analyze', {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
 
                 if (!res.ok) {
                     const errData = await res.json();
@@ -527,16 +534,21 @@
                     badge.innerText = `Uploaded: ${file.name}${metaInfo}`;
                     badge.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-700/60';
 
-                    // Run automatic analysis for single files
-                    await animateDeepScanProgress();
-                    const analyzeRes = await fetch('/api/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: data.extracted_text })
-                    });
-                    const analyzeData = await analyzeRes.json();
-                    currentAnalysisResult = analyzeData;
-                    renderResults(analyzeData);
+                    // Render results directly if pre-analyzed or run analysis
+                    if (data.similarity && data.ai) {
+                        currentAnalysisResult = data;
+                        renderResults(data);
+                    } else {
+                        await animateDeepScanProgress();
+                        const analyzeRes = await fetch('/api/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: data.extracted_text })
+                        });
+                        const analyzeData = await analyzeRes.json();
+                        currentAnalysisResult = analyzeData;
+                        renderResults(analyzeData);
+                    }
                 }
 
             } catch (err) {

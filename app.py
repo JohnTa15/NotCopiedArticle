@@ -162,12 +162,27 @@ async def upload_and_analyze(file: UploadFile = File(...)):
     if not text:
         raise HTTPException(status_code=400, detail="Document contains no readable text")
 
+    reference_corpus = corpus_inst.get_all()
+
+    # If ZIP archive, run per-document similarity and AI analysis for each extracted file
+    if file_meta.get("format") == "zip" and "processed_files" in file_meta:
+        for pfile in file_meta["processed_files"]:
+            ptext = pfile.get("text", "").strip()
+            if ptext:
+                plang = detect_language(ptext)
+                psim_score, pmatches = find_matched_passages(ptext, reference_corpus)
+                pai_result = detect_ai_content(ptext)
+                pfile["similarity"] = {
+                    "score": psim_score,
+                    "matches": pmatches
+                }
+                pfile["ai"] = pai_result
+
     detected_lang = detect_language(text)
     sentences = get_sentences(text)
     words = tokenize_words(text, detected_lang)
     
     # 1. Similarity Engine
-    reference_corpus = corpus_inst.get_all()
     similarity_score, matches = find_matched_passages(text, reference_corpus)
     
     # 2. AI Content Detector Engine
