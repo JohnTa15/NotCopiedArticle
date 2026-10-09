@@ -1,5 +1,12 @@
 # VeriText AI & Plagiarism Detector Changelog
 
+## [v1.5.0] - 2026-10-09
+### Added
+- **Real-Time Online Web Similarity Search**: Detects unoriginal passages against online web search indices with live clickable source links (`🌐 Online Source`).
+- **Per-File Isolated Inspection Modal**: Standalone Turnitin report inspector for ZIP files with 3 sub-tabs (Highlighted Text Scan, Similarity & Online Sources, AI Diagnostics).
+- **Per-Document Scores in ZIP Inventory**: Render mini score pills (`Similarity %` & `AI %`) directly on individual file cards.
+- **Clean Package Raw Text View**: Keeps `#inputText` clean on ZIP upload without dumping concatenated file text.
+
 ## [v1.4.0] - 2026-10-09
 ### Added
 - **Selective Document Picker & Checkbox Drawer**: Allows selecting specific files (one, several, or all) from multi-document packages or `.zip` archives.

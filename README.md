@@ -1,7 +1,7 @@
 # NotCopiedArticle
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-v1.3.0-blue?style=for-the-badge&logo=shield" alt="Version 1.3.0">
+  <img src="https://img.shields.io/badge/Version-v1.5.0-blue?style=for-the-badge&logo=shield" alt="Version 1.5.0">
   <img src="https://img.shields.io/badge/Languages-English%20%7C%20Greek-purple?style=for-the-badge" alt="Languages">
   <img src="https://img.shields.io/badge/Python-3.13+-emerald?style=for-the-badge&logo=python" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi" alt="FastAPI">
