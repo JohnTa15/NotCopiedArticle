@@ -559,7 +559,6 @@
 
             runAnalysis();
         }
-        }
 
         async function loadSample(sampleKey) {
             try {
@@ -738,53 +737,6 @@
             });
         }
 
-        function renderSimilarityTab(matches) {
-            const list = document.getElementById('similarityList');
-            if (!matches || matches.length === 0) {
-                list.innerHTML = `<div class="p-3 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-medium border border-emerald-200">
-                    <i class="fa-solid fa-check-circle mr-1"></i> No unoriginal similarity matches found in reference database.
-                </div>`;
-                return;
-            }
-
-            list.innerHTML = matches.map((m, i) => `
-                <div class="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
-                    <div class="flex justify-between font-bold text-red-900">
-                        <span>#${i+1} ${m.matched_ref_title}</span>
-                        <span>${m.match_similarity}% Match</span>
-                    </div>
-                    <p class="text-[11px] text-red-700 italic font-serif">"${m.target_text}"</p>
-                    <div class="text-[10px] text-red-500 font-sans">Source: ${m.matched_ref_author}</div>
-                </div>
-            `).join('');
-        }
-
-        function renderAITab(aiData) {
-            const container = document.getElementById('aiIndicators');
-            let html = `
-                <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg space-y-1">
-                    <div class="font-bold text-purple-900">Overall AI Classification: ${aiData.classification}</div>
-                    <div class="text-purple-700">Burstiness Index: ${aiData.burstiness} • Lexical Diversity: ${aiData.type_token_ratio}</div>
-                </div>
-                <div class="font-semibold text-slate-700 mt-2">Key Diagnostic Signals:</div>
-                <ul class="space-y-1">
-            `;
-
-            aiData.indicators.forEach(ind => {
-                html += `<li class="flex items-start gap-1.5 text-slate-600"><i class="fa-solid fa-circle-info text-purple-500 mt-0.5"></i> ${ind}</li>`;
-            });
-
-            if (aiData.ai_phrases_found && aiData.ai_phrases_found.length > 0) {
-                html += `<li class="font-semibold text-slate-700 mt-2">Flagged AI Transitional Phrases:</li>`;
-                aiData.ai_phrases_found.forEach(p => {
-                    html += `<li class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-[11px] inline-block mr-1 mb-1 font-mono">${p.pattern} (${p.count})</li>`;
-                });
-            }
-
-            html += `</ul>`;
-            container.innerHTML = html;
-        }
-
         function renderMetricsTab(data) {
             document.getElementById('statWords').innerText = data.stats.words;
             document.getElementById('statSentences').innerText = data.stats.sentences;
@@ -816,12 +768,12 @@
             ['tab-similarity', 'tab-ai', 'tab-stats'].forEach(t => {
                 document.getElementById(t).classList.add('hidden');
                 document.getElementById('btn-' + t).classList.remove('tab-active');
-                document.getElementById('btn-' + t).classList.add('text-slate-500');
+                document.getElementById('btn-' + t).classList.add('text-slate-400');
             });
 
             document.getElementById(tabId).classList.remove('hidden');
             document.getElementById('btn-' + tabId).classList.add('tab-active');
-            document.getElementById('btn-' + tabId).classList.remove('text-slate-500');
+            document.getElementById('btn-' + tabId).classList.remove('text-slate-400');
         }
 
         function resetEditor() {
@@ -830,8 +782,9 @@
             document.getElementById('analyzedView').innerHTML = '';
             document.getElementById('similarityScoreVal').innerText = '--%';
             document.getElementById('aiScoreVal').innerText = '--%';
-            document.getElementById('similarityList').innerText = 'Run analysis to detect matching references.';
-            document.getElementById('aiIndicators').innerText = 'Run analysis to evaluate AI patterns.';
+            document.getElementById('similarityList').innerText = 'Execute scan to evaluate document similarity against reference database.';
+            document.getElementById('aiIndicators').innerText = 'Execute scan to detect perplexity variance, burstiness, and signature AI phrases.';
+            document.getElementById('zipSelectionContainer').classList.add('hidden');
             if (!isEditMode) toggleViewMode();
         }
 
