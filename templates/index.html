@@ -492,26 +492,39 @@
             const grid = document.getElementById('zipFileListGrid');
             const subtitle = document.getElementById('zipPackageSubtitle');
 
-            container.classList.remove('hidden');
-            subtitle.innerText = `${files.length} extracted files found. Check files to select target scan subset.`;
+            if (!files || files.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
 
-            grid.innerHTML = files.map((f) => `
-                <div class="p-2.5 glass-input rounded-xl border border-slate-800 flex items-center justify-between gap-2 hover:border-indigo-500/40 transition">
-                    <div class="flex items-center gap-2.5 overflow-hidden">
-                        <input type="checkbox" id="zip_chk_${f.id}" checked onchange="updateSelectedZipCount()" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
-                        <div class="truncate">
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">${f.format}</span>
-                                <span class="text-xs font-bold text-slate-200 truncate" title="${f.filename}">${f.filename}</span>
+            container.classList.remove('hidden');
+            subtitle.innerText = `${files.length} extracted documents found in package. Select specific files to analyze.`;
+
+            grid.innerHTML = files.map((f, index) => {
+                const fileId = f.id || `file_${index + 1}`;
+                const formatName = (f.format || 'doc').toUpperCase();
+                const wordCount = (f.words || (f.text ? f.text.split(/\s+/).length : 0)).toLocaleString();
+                const pageCount = f.pages || (f.meta ? (f.meta.page_count || f.meta.slide_count || 1) : 1);
+                const fileName = f.filename || `Document_${index + 1}`;
+
+                return `
+                    <div class="p-2.5 glass-input rounded-xl border border-slate-800 flex items-center justify-between gap-2 hover:border-indigo-500/40 transition">
+                        <div class="flex items-center gap-2.5 overflow-hidden">
+                            <input type="checkbox" id="zip_chk_${fileId}" checked onchange="updateSelectedZipCount()" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                            <div class="truncate">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">${formatName}</span>
+                                    <span class="text-xs font-bold text-slate-200 truncate" title="${fileName}">${fileName}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 font-mono mt-0.5">${wordCount} Words • ${pageCount} Pages</div>
                             </div>
-                            <div class="text-[10px] text-slate-400 font-mono mt-0.5">${f.words.toLocaleString()} Words • ${f.pages} Pages</div>
                         </div>
+                        <button onclick="previewIndividualFile('${fileId}')" title="Preview isolated file" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1 font-semibold">
+                            <i class="fa-solid fa-eye text-xs"></i> Preview
+                        </button>
                     </div>
-                    <button onclick="previewIndividualFile('${f.id}')" title="Preview isolated file" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 px-2 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1">
-                        <i class="fa-solid fa-eye text-xs"></i>
-                    </button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             updateSelectedZipCount();
         }
@@ -528,13 +541,17 @@
         }
 
         function previewIndividualFile(fileId) {
-            const fileObj = uploadedZipFiles.find(f => f.id === fileId);
+            const fileObj = uploadedZipFiles.find((f, idx) => (f.id || `file_${idx + 1}`) === fileId);
             if (!fileObj) return;
 
-            document.getElementById('previewFileBadge').innerText = fileObj.format.toUpperCase();
-            document.getElementById('previewFileTitle').innerText = fileObj.filename;
-            document.getElementById('previewFileMeta').innerText = `${fileObj.words.toLocaleString()} Words • ${fileObj.pages} Pages`;
-            document.getElementById('previewFileContent').innerText = fileObj.text;
+            const formatName = (fileObj.format || 'doc').toUpperCase();
+            const wordCount = (fileObj.words || (fileObj.text ? fileObj.text.split(/\s+/).length : 0)).toLocaleString();
+            const pageCount = fileObj.pages || (fileObj.meta ? (fileObj.meta.page_count || fileObj.meta.slide_count || 1) : 1);
+
+            document.getElementById('previewFileBadge').innerText = formatName;
+            document.getElementById('previewFileTitle').innerText = fileObj.filename || 'Document Preview';
+            document.getElementById('previewFileMeta').innerText = `${wordCount} Words • ${pageCount} Pages`;
+            document.getElementById('previewFileContent').innerText = fileObj.text || '';
 
             document.getElementById('filePreviewModal').classList.remove('hidden');
         }
