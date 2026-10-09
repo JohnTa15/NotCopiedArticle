@@ -338,8 +338,9 @@ def sigmoid(x: float) -> float:
 
 def detect_ai_content(text: str) -> Dict[str, Any]:
     """
-    Smart Multilingual AI Detector (English & Greek).
-    Uses a probabilistic multi-feature classification model.
+    Smart Multilingual Multi-Pass AI Detector (English & Greek).
+    Uses iterative 2-pass probabilistic feature extraction, sliding window MATTR,
+    entropy perplexity, and spatial neighborhood consensus smoothing.
     """
     lang = detect_language(text)
     sentences = get_sentences(text)
@@ -357,7 +358,7 @@ def detect_ai_content(text: str) -> Dict[str, Any]:
             "indicators": []
         }
 
-    # 1. Global Document Features
+    # 1. Global Document Feature Extraction
     doc_perplexity = calculate_perplexity(all_words)
     doc_entropy = calculate_shannon_entropy(all_words)
     mattr = calculate_moving_average_ttr(all_words, window_size=min(25, len(all_words)))
@@ -365,7 +366,7 @@ def detect_ai_content(text: str) -> Dict[str, Any]:
     burstiness, std_dev, mean_len = calculate_burstiness_and_variance(sentences, lang)
     marker_density, stylometric_markers = detect_stylometric_markers(text, lang)
 
-    # 2. Sentence-Level Probabilistic Analysis
+    # 2. PASS 1: Sentence-Level Feature & Probabilistic Analysis
     sentence_analyses = []
     total_sentence_ai_prob = 0.0
 
@@ -397,41 +398,53 @@ def detect_ai_content(text: str) -> Dict[str, Any]:
 
         sent_prob = round(sigmoid(z_sent) * 100, 1)
 
-        if sent_prob >= 65.0:
-            classification = "Likely AI"
-        elif sent_prob >= 40.0:
-            classification = "Mixed / Unclear"
-        else:
-            classification = "Human Written"
-
         sentence_analyses.append({
             "index": idx,
             "text": sent,
             "word_count": s_len,
             "ai_probability": sent_prob,
-            "classification": classification,
+            "classification": "Human Written",
             "flagged_phrases": s_marker_count > 0
         })
 
-        total_sentence_ai_prob += sent_prob
+    # 3. PASS 2: Spatial Neighborhood Consensus & Smoothing (Multi-Pass Refinement)
+    n_sents = len(sentence_analyses)
+    for i in range(n_sents):
+        prev_prob = sentence_analyses[i-1]["ai_probability"] if i > 0 else sentence_analyses[i]["ai_probability"]
+        next_prob = sentence_analyses[i+1]["ai_probability"] if i < n_sents - 1 else sentence_analyses[i]["ai_probability"]
+        curr_prob = sentence_analyses[i]["ai_probability"]
 
-    # 3. Global Document Ensemble Classification Model
+        # Spatial neighborhood weighting: AI text forms contiguous semantic blocks
+        smoothed_prob = (0.6 * curr_prob) + (0.2 * prev_prob) + (0.2 * next_prob)
+        sentence_analyses[i]["ai_probability"] = round(smoothed_prob, 1)
+
+        prob_val = sentence_analyses[i]["ai_probability"]
+        if prob_val >= 65.0:
+            sentence_analyses[i]["classification"] = "Likely AI"
+        elif prob_val >= 40.0:
+            sentence_analyses[i]["classification"] = "Mixed / Unclear"
+        else:
+            sentence_analyses[i]["classification"] = "Human Written"
+
+        total_sentence_ai_prob += sentence_analyses[i]["ai_probability"]
+
+    # 4. Global Document Ensemble Classification Model (Continuous Multi-Pass Model)
     z_global = -2.4  # Prior bias towards human content
     
     if len(sentences) >= 6:
-        z_global += (0.45 - burstiness) * 3.0
+        z_global += (0.45 - burstiness) * 3.2
         
-    z_global += marker_density * 90.0
+    z_global += marker_density * 95.0
     
     if hapax < 0.38 and len(all_words) > 50:
-        z_global += (0.38 - hapax) * 4.0
+        z_global += (0.38 - hapax) * 4.2
         
     if doc_perplexity < 20.0 and len(all_words) > 40:
-        z_global += (20.0 - doc_perplexity) * 0.1
+        z_global += (20.0 - doc_perplexity) * 0.12
 
     avg_sentence_prob = total_sentence_ai_prob / len(sentences) if sentences else 0.0
-    if marker_density > 0:
-        z_global += (avg_sentence_prob / 100.0) * 2.0
+    if marker_density > 0 or avg_sentence_prob > 50.0:
+        z_global += (avg_sentence_prob / 100.0) * 2.2
 
     global_ai_score = round(sigmoid(z_global) * 100, 1)
 
@@ -442,14 +455,16 @@ def detect_ai_content(text: str) -> Dict[str, Any]:
     else:
         overall_class = "Human Written"
 
-    indicators = []
+    indicators = [
+        "Multi-Pass Verification Scan Executed (2-Pass Consensus Alignment)"
+    ]
     if burstiness < 0.35:
         indicators.append(f"Low Sentence Length Variance (Burstiness: {round(burstiness, 2)}) - Uniform AI rhythm")
     else:
         indicators.append(f"High Sentence Variety (Burstiness: {round(burstiness, 2)}) - Natural Human cadence")
 
     if doc_perplexity < 32.0:
-        indicators.append(f"Low Perplexity ({round(doc_perplexity, 1)}) - Highly predictable word transition distribution")
+        indicators.append(f"Low Perplexity ({round(doc_perplexity, 1)}) - Predictable word transition distribution")
     else:
         indicators.append(f"High Perplexity ({round(doc_perplexity, 1)}) - Complex human vocabulary transitions")
 

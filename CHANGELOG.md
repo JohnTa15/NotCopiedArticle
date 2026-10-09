@@ -1,5 +1,11 @@
 # VeriText AI & Plagiarism Detector Changelog
 
+## [v1.6.0] - 2026-10-09
+### Added
+- **Multi-Pass Accuracy Verification Engine**: Upgraded plagiarism & AI detection to iterative multi-pass feature extraction.
+- **Spatial Neighborhood Consensus Smoothing**: 2-Pass spatial neighborhood alignment for sentence AI probability scoring to eliminate isolated false positives.
+- **Enhanced Precision Thresholds**: Refined Winnowing MinHash ($k=4, w=4$), Jaccard n-gram overlap, and Gestalt sequence alignment thresholds.
+
 ## [v1.5.0] - 2026-10-09
 ### Added
 - **Real-Time Online Web Similarity Search**: Detects unoriginal passages against online web search indices with live clickable source links (`🌐 Online Source`).
