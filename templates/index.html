@@ -378,25 +378,55 @@
 
     </main>
 
-    <!-- Modal: Individual File Preview -->
+    <!-- Modal: Individual File Preview & Turnitin Report -->
     <div id="filePreviewModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="glass-card rounded-2xl max-w-2xl w-full p-6 space-y-4 border border-slate-800 animate-fade-in shadow-2xl">
+        <div class="glass-card rounded-2xl max-w-4xl w-full p-6 space-y-4 border border-slate-800 animate-fade-in shadow-2xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <div class="flex items-center gap-2.5">
+                <div class="flex items-center gap-3">
                     <span id="previewFileBadge" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30">PDF</span>
                     <div>
-                        <h3 id="previewFileTitle" class="font-bold text-white text-sm">document_title.pdf</h3>
+                        <h3 id="previewFileTitle" class="font-bold text-white text-base">document_title.pdf</h3>
                         <p id="previewFileMeta" class="text-xs text-slate-400 font-mono">1,200 Words • 4 Pages</p>
                     </div>
                 </div>
                 <button onclick="closeFilePreviewModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="space-y-3">
-                <div id="previewFileContent" class="w-full h-80 p-4 glass-input rounded-xl text-slate-200 text-sm leading-relaxed overflow-y-auto font-paper border border-slate-800"></div>
+
+            <!-- Per-File Scores Bar -->
+            <div class="grid grid-cols-2 gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800/80">
+                <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-rose-950/30 border border-rose-800/40">
+                    <span class="text-xs font-semibold text-rose-300"><i class="fa-solid fa-copy mr-1.5"></i> Similarity Score</span>
+                    <span id="modalSimScoreVal" class="text-lg font-black font-mono text-rose-400">--%</span>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-purple-950/30 border border-purple-800/40">
+                    <span class="text-xs font-semibold text-purple-300"><i class="fa-solid fa-robot mr-1.5"></i> AI Content Score</span>
+                    <span id="modalAIScoreVal" class="text-lg font-black font-mono text-purple-400">--%</span>
+                </div>
             </div>
+
+            <!-- Modal Sub-Tabs -->
+            <div class="flex border-b border-slate-800 text-xs font-semibold gap-2">
+                <button id="modal-tab-btn-text" onclick="switchModalTab('text')" class="px-3.5 py-2 border-b-2 border-blue-500 text-blue-400 font-bold transition">
+                    <i class="fa-solid fa-align-left mr-1"></i> Highlighted Text Scan
+                </button>
+                <button id="modal-tab-btn-sim" onclick="switchModalTab('sim')" class="px-3.5 py-2 text-slate-400 hover:text-slate-200 transition">
+                    <i class="fa-solid fa-globe mr-1"></i> Similarity & Online Sources (<span id="modalSimCount">0</span>)
+                </button>
+                <button id="modal-tab-btn-ai" onclick="switchModalTab('ai')" class="px-3.5 py-2 text-slate-400 hover:text-slate-200 transition">
+                    <i class="fa-solid fa-brain mr-1"></i> AI Diagnostics
+                </button>
+            </div>
+
+            <!-- Modal Content Panes -->
+            <div class="flex-1 overflow-y-auto space-y-3 min-h-[300px]">
+                <div id="modalPaneText" class="w-full h-80 p-4 glass-input rounded-xl text-slate-200 text-sm leading-relaxed font-paper border border-slate-800 overflow-y-auto"></div>
+                <div id="modalPaneSim" class="hidden space-y-2.5 max-h-80 overflow-y-auto"></div>
+                <div id="modalPaneAI" class="hidden space-y-2.5 max-h-80 overflow-y-auto"></div>
+            </div>
+
             <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
-                <span class="text-slate-400 font-mono">Isolated File Preview Mode</span>
-                <button onclick="closeFilePreviewModal()" class="px-5 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition">Close Preview</button>
+                <span class="text-slate-400 font-mono">Isolated File Inspection & Online Verification Mode</span>
+                <button onclick="closeFilePreviewModal()" class="px-5 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition">Close Inspector</button>
             </div>
         </div>
     </div>
@@ -453,7 +483,7 @@
             formData.append('file', file);
 
             try {
-                // Call extraction endpoint to get package files inventory first
+                // Call extraction endpoint to get package files inventory & per-file report
                 const res = await fetch('/api/upload-and-extract', {
                     method: 'POST',
                     body: formData
@@ -471,7 +501,7 @@
                     uploadedZipFiles = data.file_meta.processed_files;
                     renderZipFileSelectionList(uploadedZipFiles);
                     
-                    document.getElementById('inputText').value = data.extracted_text;
+                    document.getElementById('inputText').value = `[ZIP Archive Package: ${file.name} (${uploadedZipFiles.length} files extracted)]\n\nClick 'Preview & Analysis' on any document card below to open its isolated Turnitin report, inspect text highlights, view similarity scores, and verify online sources.`;
                     document.getElementById('inputText').dispatchEvent(new Event('input'));
 
                     const badge = document.getElementById('docStatusBadge');
@@ -528,7 +558,7 @@
             }
 
             container.classList.remove('hidden');
-            subtitle.innerText = `${files.length} extracted documents found in package. Select specific files to analyze.`;
+            subtitle.innerText = `${files.length} extracted documents found in package. Click 'Preview & Analysis' for isolated report or select files to scan together.`;
 
             grid.innerHTML = files.map((f, index) => {
                 const fileId = f.id || `file_${index + 1}`;
@@ -537,8 +567,14 @@
                 const pageCount = f.pages || (f.meta ? (f.meta.page_count || f.meta.slide_count || 1) : 1);
                 const fileName = f.filename || `Document_${index + 1}`;
 
+                const simScore = f.similarity ? f.similarity.score : 0;
+                const aiScore = f.ai ? f.ai.overall_ai_score : 0;
+
+                const simBadgeClass = simScore > 25 ? 'bg-rose-950/60 text-rose-300 border-rose-800/60' : 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60';
+                const aiBadgeClass = aiScore > 50 ? 'bg-purple-950/60 text-purple-300 border-purple-800/60' : 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60';
+
                 return `
-                    <div class="p-2.5 glass-input rounded-xl border border-slate-800 flex items-center justify-between gap-2 hover:border-indigo-500/40 transition">
+                    <div class="p-3 glass-input rounded-xl border border-slate-800 flex items-center justify-between gap-2 hover:border-indigo-500/40 transition">
                         <div class="flex items-center gap-2.5 overflow-hidden">
                             <input type="checkbox" id="zip_chk_${fileId}" checked onchange="updateSelectedZipCount()" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
                             <div class="truncate">
@@ -546,11 +582,15 @@
                                     <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">${formatName}</span>
                                     <span class="text-xs font-bold text-slate-200 truncate" title="${fileName}">${fileName}</span>
                                 </div>
-                                <div class="text-[10px] text-slate-400 font-mono mt-0.5">${wordCount} Words • ${pageCount} Pages</div>
+                                <div class="flex items-center gap-1.5 mt-1 font-mono text-[10px]">
+                                    <span class="text-slate-400">${wordCount} W • ${pageCount} P</span>
+                                    <span class="px-1.5 py-0.5 rounded border ${simBadgeClass}">Sim: ${simScore}%</span>
+                                    <span class="px-1.5 py-0.5 rounded border ${aiBadgeClass}">AI: ${aiScore}%</span>
+                                </div>
                             </div>
                         </div>
-                        <button onclick="previewIndividualFile('${fileId}')" title="Preview isolated file" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1 font-semibold">
-                            <i class="fa-solid fa-eye text-xs"></i> Preview
+                        <button onclick="previewIndividualFile('${fileId}')" title="Inspect Turnitin Report for this document" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5 font-semibold shrink-0">
+                            <i class="fa-solid fa-eye text-xs"></i> Preview & Report
                         </button>
                     </div>
                 `;
@@ -570,6 +610,27 @@
             updateSelectedZipCount();
         }
 
+        function switchModalTab(tabName) {
+            ['text', 'sim', 'ai'].forEach(t => {
+                const pane = document.getElementById('modalPane' + t.charAt(0).toUpperCase() + t.slice(1));
+                const btn = document.getElementById('modal-tab-btn-' + t);
+                if (pane) pane.classList.add('hidden');
+                if (btn) {
+                    btn.classList.remove('border-b-2', 'border-blue-500', 'text-blue-400', 'font-bold');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+
+            const activePane = document.getElementById('modalPane' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+            const activeBtn = document.getElementById('modal-tab-btn-' + tabName);
+            
+            if (activePane) activePane.classList.remove('hidden');
+            if (activeBtn) {
+                activeBtn.classList.add('border-b-2', 'border-blue-500', 'text-blue-400', 'font-bold');
+                activeBtn.classList.remove('text-slate-400');
+            }
+        }
+
         function previewIndividualFile(fileId) {
             const fileObj = uploadedZipFiles.find((f, idx) => (f.id || `file_${idx + 1}`) === fileId);
             if (!fileObj) return;
@@ -579,10 +640,103 @@
             const pageCount = fileObj.pages || (fileObj.meta ? (fileObj.meta.page_count || fileObj.meta.slide_count || 1) : 1);
 
             document.getElementById('previewFileBadge').innerText = formatName;
-            document.getElementById('previewFileTitle').innerText = fileObj.filename || 'Document Preview';
+            document.getElementById('previewFileTitle').innerText = fileObj.filename || 'Document Inspection';
             document.getElementById('previewFileMeta').innerText = `${wordCount} Words • ${pageCount} Pages`;
-            document.getElementById('previewFileContent').innerText = fileObj.text || '';
 
+            const simScore = fileObj.similarity ? fileObj.similarity.score : 0;
+            const aiScore = fileObj.ai ? fileObj.ai.overall_ai_score : 0;
+
+            document.getElementById('modalSimScoreVal').innerText = `${simScore}%`;
+            document.getElementById('modalAIScoreVal').innerText = `${aiScore}%`;
+
+            // 1. Modal Pane Text Highlights
+            const textPane = document.getElementById('modalPaneText');
+            textPane.innerHTML = '';
+            
+            if (fileObj.ai && fileObj.ai.sentence_scores) {
+                const matchesMap = {};
+                if (fileObj.similarity && fileObj.similarity.matches) {
+                    fileObj.similarity.matches.forEach(m => { matchesMap[m.sentence_index] = m; });
+                }
+
+                fileObj.ai.sentence_scores.forEach((sObj, idx) => {
+                    const text = sObj.text;
+                    const simMatch = matchesMap[idx];
+                    const aiProb = sObj.ai_probability;
+
+                    const span = document.createElement('span');
+                    span.innerText = text + ' ';
+
+                    if (simMatch && aiProb > 50) {
+                        span.className = 'highlight-both';
+                        span.title = `Similarity Match (${simMatch.match_similarity}%) with "${simMatch.matched_ref_title}" & AI Probability (${aiProb}%)`;
+                    } else if (simMatch) {
+                        span.className = 'highlight-plagiarism';
+                        span.title = `Similarity Match (${simMatch.match_similarity}%) Source: ${simMatch.matched_ref_title}`;
+                    } else if (aiProb >= 60) {
+                        span.className = 'highlight-ai';
+                        span.title = `AI Generated Sentence Confidence: ${aiProb}%`;
+                    }
+                    textPane.appendChild(span);
+                });
+            } else {
+                textPane.innerText = fileObj.text || '';
+            }
+
+            // 2. Modal Pane Similarity & Online Sources
+            const simPane = document.getElementById('modalPaneSim');
+            const matches = fileObj.similarity ? fileObj.similarity.matches : [];
+            document.getElementById('modalSimCount').innerText = matches.length;
+
+            if (!matches || matches.length === 0) {
+                simPane.innerHTML = `<div class="p-3.5 bg-emerald-950/30 text-emerald-400 rounded-xl text-xs border border-emerald-800/40 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+                    <span>No unoriginal similarity matches found for this document.</span>
+                </div>`;
+            } else {
+                simPane.innerHTML = matches.map((m, i) => `
+                    <div class="p-3 bg-rose-950/30 border border-rose-800/50 rounded-xl space-y-1.5 animate-fade-in">
+                        <div class="flex justify-between font-bold text-rose-300 text-xs">
+                            <span class="truncate pr-2">#${i+1} ${m.matched_ref_title}</span>
+                            <span class="text-rose-400 font-mono">${m.match_similarity}% Match</span>
+                        </div>
+                        <p class="text-[11px] text-rose-200/90 italic font-paper">"${m.target_text}"</p>
+                        <div class="flex justify-between items-center text-[10px] text-rose-400/80 font-sans pt-1 border-t border-rose-900/40">
+                            <span>Source: ${m.matched_ref_author}</span>
+                            ${m.url ? `<a href="${m.url}" target="_blank" class="text-blue-400 hover:text-blue-300 font-semibold underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> View Online Source</a>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 3. Modal Pane AI Diagnostics
+            const aiPane = document.getElementById('modalPaneAI');
+            const aiData = fileObj.ai;
+            if (aiData) {
+                let html = `
+                    <div class="p-3 bg-purple-950/40 border border-purple-800/50 rounded-xl space-y-1">
+                        <div class="font-bold text-purple-200 text-xs">Verdict: ${aiData.classification}</div>
+                        <div class="text-purple-300/80 font-mono text-[11px]">Burstiness Index: ${aiData.burstiness} • Lexical Diversity: ${aiData.type_token_ratio}</div>
+                    </div>
+                    <div class="font-semibold text-slate-200 text-xs mt-2">Diagnostic Signals:</div>
+                    <ul class="space-y-1 text-xs">
+                `;
+                aiData.indicators.forEach(ind => {
+                    html += `<li class="flex items-start gap-2 text-slate-300"><i class="fa-solid fa-sparkles text-purple-400 mt-0.5 text-xs"></i> ${ind}</li>`;
+                });
+                if (aiData.ai_phrases_found && aiData.ai_phrases_found.length > 0) {
+                    html += `<li class="font-semibold text-slate-200 mt-2 text-xs">Flagged AI Transitional Phrases:</li>`;
+                    aiData.ai_phrases_found.forEach(p => {
+                        html += `<li class="bg-purple-900/50 text-purple-200 border border-purple-700/50 px-2 py-0.5 rounded text-[11px] inline-block mr-1 mb-1 font-mono">${p.pattern} (${p.count})</li>`;
+                    });
+                }
+                html += `</ul>`;
+                aiPane.innerHTML = html;
+            } else {
+                aiPane.innerText = 'No AI diagnostic data available.';
+            }
+
+            switchModalTab('text');
             document.getElementById('filePreviewModal').classList.remove('hidden');
         }
 
@@ -713,19 +867,22 @@
             if (!matches || matches.length === 0) {
                 list.innerHTML = `<div class="p-3.5 bg-emerald-950/30 text-emerald-400 rounded-xl text-xs border border-emerald-800/40 flex items-center gap-2">
                     <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i> 
-                    <span>No matching references found in database. Content is highly original.</span>
+                    <span>No matching references found in database or online sources. Content is highly original.</span>
                 </div>`;
                 return;
             }
 
             list.innerHTML = matches.map((m, i) => `
                 <div class="p-3.5 bg-rose-950/30 border border-rose-800/50 rounded-xl space-y-1.5 animate-fade-in">
-                    <div class="flex justify-between font-bold text-rose-300">
+                    <div class="flex justify-between font-bold text-rose-300 text-xs">
                         <span class="truncate pr-2">#${i+1} ${m.matched_ref_title}</span>
                         <span class="text-rose-400 font-mono">${m.match_similarity}% Match</span>
                     </div>
                     <p class="text-[11px] text-rose-200/90 italic font-paper">"${m.target_text}"</p>
-                    <div class="text-[10px] text-rose-400/80 font-sans">Source: ${m.matched_ref_author}</div>
+                    <div class="flex justify-between items-center text-[10px] text-rose-400/80 font-sans pt-1 border-t border-rose-900/40">
+                        <span>Source: ${m.matched_ref_author}</span>
+                        ${m.url ? `<a href="${m.url}" target="_blank" class="text-blue-400 hover:text-blue-300 font-semibold underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> View Online Source</a>` : ''}
+                    </div>
                 </div>
             `).join('');
         }

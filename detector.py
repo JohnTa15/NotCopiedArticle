@@ -99,10 +99,53 @@ def fuzzy_sequence_similarity(str1: str, str2: str) -> float:
     """Gestalt Pattern Matching to detect paraphrased or slightly edited sentences."""
     return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
+import urllib.request
+import urllib.parse
+
+def search_online_web_sources(query: str) -> List[Dict[str, str]]:
+    """Query online web search engine for real-time similarity verification."""
+    try:
+        url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(query)
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+        with urllib.request.urlopen(req, timeout=4) as response:
+            html = response.read().decode('utf-8', errors='ignore')
+            
+        results = []
+        snippets = re.findall(r'<a class="result__snippet[^>]*>(.*?)</a>', html, re.DOTALL)
+        urls = re.findall(r'<a class="result__url"[^>]*href="([^"]+)"', html)
+        titles = re.findall(r'<a class="result__title"[^>]*>(.*?)</a>', html, re.DOTALL)
+        
+        for i in range(min(3, len(snippets))):
+            clean_title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else "Online Web Source"
+            clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+            raw_url = urls[i].strip() if i < len(urls) else ""
+            
+            clean_url = raw_url
+            if "uddg=" in raw_url:
+                parsed_u = urllib.parse.parse_qs(urllib.parse.urlparse(raw_url).query)
+                if "uddg" in parsed_u:
+                    clean_url = parsed_u["uddg"][0]
+
+            domain = urllib.parse.urlparse(clean_url).netloc or "web-source"
+            
+            if clean_snippet:
+                results.append({
+                    "title": clean_title,
+                    "snippet": clean_snippet,
+                    "url": clean_url,
+                    "domain": domain
+                })
+        return results
+    except Exception as e:
+        return []
+
 def find_matched_passages(target_doc: str, reference_docs: List[Dict[str, Any]]) -> Tuple[float, List[Dict[str, Any]]]:
     """
     Smart Multi-Layer Plagiarism Matcher:
-    Combines Winnowing Fingerprints, TF-IDF Cosine Similarity, and Gestalt Fuzzy Sequence Alignment.
+    Combines Winnowing Fingerprints, TF-IDF Cosine Similarity, Gestalt Fuzzy Sequence Alignment,
+    and Real-Time Online Web Source Search.
     """
     target_sentences = get_sentences(target_doc)
     if not target_sentences:
@@ -114,15 +157,17 @@ def find_matched_passages(target_doc: str, reference_docs: List[Dict[str, Any]])
     matches = []
     matched_target_indices = set()
 
+    # 1. Check Internal Reference Corpus
     for doc in reference_docs:
         ref_id = doc.get("id", "ref")
         ref_title = doc.get("title", "Reference Document")
         ref_author = doc.get("author", "Unknown Source")
         ref_text = doc.get("text", "")
         ref_sentences = get_sentences(ref_text)
-        ref_words_doc = tokenize_words(ref_text, lang)
         
         for idx, t_sent in enumerate(target_sentences):
+            if idx in matched_target_indices:
+                continue
             t_words = tokenize_words(t_sent, lang)
             if len(t_words) < 3:
                 continue
@@ -135,7 +180,6 @@ def find_matched_passages(target_doc: str, reference_docs: List[Dict[str, Any]])
                 if len(r_words) < 3:
                     continue
                 
-                # Hybrid metric: Cosine + Fuzzy Sequence Matcher
                 cos_sim = compute_tfidf_cosine_similarity(t_words, r_words)
                 seq_sim = fuzzy_sequence_similarity(t_sent, r_sent)
                 
@@ -154,8 +198,40 @@ def find_matched_passages(target_doc: str, reference_docs: List[Dict[str, Any]])
                     "matched_ref_title": ref_title,
                     "matched_ref_author": ref_author,
                     "matched_ref_text": best_ref_sent,
-                    "match_similarity": round(best_match_score * 100, 1)
+                    "match_similarity": round(best_match_score * 100, 1),
+                    "is_online": False
                 })
+
+    # 2. Check Real-Time Online Web Sources for un-matched key sentences
+    candidate_sentences = [
+        (idx, s) for idx, s in enumerate(target_sentences) 
+        if idx not in matched_target_indices and len(tokenize_words(s, lang)) >= 6
+    ]
+
+    for idx, t_sent in candidate_sentences[:3]:
+        t_words = tokenize_words(t_sent, lang)
+        web_results = search_online_web_sources(t_sent)
+        
+        for item in web_results:
+            r_words = tokenize_words(item["snippet"], lang)
+            cos_sim = compute_tfidf_cosine_similarity(t_words, r_words)
+            seq_sim = fuzzy_sequence_similarity(t_sent, item["snippet"])
+            combined_score = (0.6 * seq_sim) + (0.4 * cos_sim)
+            
+            if combined_score >= 0.38:
+                matched_target_indices.add(idx)
+                matches.append({
+                    "sentence_index": idx,
+                    "target_text": t_sent,
+                    "matched_ref_id": f"web_{idx}",
+                    "matched_ref_title": f"🌐 Online Source: {item['title']}",
+                    "matched_ref_author": item["domain"],
+                    "matched_ref_text": item["snippet"],
+                    "match_similarity": round(combined_score * 100, 1),
+                    "url": item["url"],
+                    "is_online": True
+                })
+                break
 
     overall_similarity = round((len(matched_target_indices) / len(target_sentences)) * 100, 1) if target_sentences else 0.0
     return overall_similarity, matches

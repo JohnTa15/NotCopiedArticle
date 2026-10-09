@@ -129,6 +129,21 @@ async def upload_and_extract(file: UploadFile = File(...)):
     if not text:
         raise HTTPException(status_code=400, detail="Document contains no readable text")
 
+    # If ZIP archive, run per-document similarity and AI analysis for each extracted file
+    if file_meta.get("format") == "zip" and "processed_files" in file_meta:
+        reference_corpus = corpus_inst.get_all()
+        for pfile in file_meta["processed_files"]:
+            ptext = pfile.get("text", "").strip()
+            if ptext:
+                plang = detect_language(ptext)
+                psim_score, pmatches = find_matched_passages(ptext, reference_corpus)
+                pai_result = detect_ai_content(ptext)
+                pfile["similarity"] = {
+                    "score": psim_score,
+                    "matches": pmatches
+                }
+                pfile["ai"] = pai_result
+
     return JSONResponse(content={
         "filename": file.filename,
         "file_meta": file_meta,
